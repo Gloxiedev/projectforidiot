@@ -7,6 +7,7 @@ const PlusIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="non
 const TrashIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>;
 const XIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 const CopyIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
+const GripIcon = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg>;
 const LockIcon = ({ locked }: { locked: boolean }) => locked
   ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
   : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>;
@@ -142,6 +143,26 @@ function SelectionEditor({ node }: { node: FlowNode }) {
   const update = useStore(s => s.updateNodeData);
   const d = node.data as SelectionNodeData;
   const set = (options: SelectionOption[]) => update(node.id, { options } as any);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    const newOptions = [...d.options];
+    const draggedItem = newOptions[draggedIndex];
+    newOptions.splice(draggedIndex, 1);
+    newOptions.splice(index, 0, draggedItem);
+    set(newOptions);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => setDraggedIndex(null);
+
   return <>
     <Field label="Question Key"><TInput value={d.questionKey} onChange={v => update(node.id, { questionKey: v } as any)} placeholder="question.key" /></Field>
     <Field label="Description Key"><TInput value={d.descriptionKey || ''} onChange={v => update(node.id, { descriptionKey: v } as any)} placeholder="question.description.key" /></Field>
@@ -157,9 +178,15 @@ function SelectionEditor({ node }: { node: FlowNode }) {
       <button className="btn btn-secondary btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => set([...d.options, { id: uuidv4(), labelKey: '', value: '' }])}><PlusIcon /> Add</button>
     </div>
     {d.options.map((opt, i) => (
-      <div key={opt.id} style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>opt {i + 1}</span>
+      <div key={opt.id} draggable onDragStart={e => handleDragStart(e, i)} onDragOver={e => handleDragOver(e, i)} onDragEnd={handleDragEnd}
+        style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6, cursor: 'grab', opacity: draggedIndex === i ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ color: 'var(--text-muted)', cursor: 'grab' }} onMouseDown={e => e.currentTarget.style.cursor = 'grabbing'} onMouseUp={e => e.currentTarget.style.cursor = 'grab'}>
+              <GripIcon />
+            </div>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>opt {i + 1}</span>
+          </div>
           <button className="btn-icon" onClick={() => set(d.options.filter(o => o.id !== opt.id))}><TrashIcon /></button>
         </div>
         <Field label="Label Key"><TInput value={opt.labelKey} onChange={v => set(d.options.map(o => o.id === opt.id ? { ...o, labelKey: v } : o))} placeholder="option.label.key" /></Field>
@@ -174,6 +201,26 @@ function ButtonEditor({ node }: { node: FlowNode }) {
   const update = useStore(s => s.updateNodeData);
   const d = node.data as ButtonNodeData;
   const set = (buttons: ButtonOption[]) => update(node.id, { buttons } as any);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    const newButtons = [...d.buttons];
+    const draggedItem = newButtons[draggedIndex];
+    newButtons.splice(draggedIndex, 1);
+    newButtons.splice(index, 0, draggedItem);
+    set(newButtons);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => setDraggedIndex(null);
+
   return <>
     <Field label="Question Key"><TInput value={d.questionKey} onChange={v => update(node.id, { questionKey: v } as any)} placeholder="button.question.key" /></Field>
     <Field label="Description Key"><TInput value={d.descriptionKey || ''} onChange={v => update(node.id, { descriptionKey: v } as any)} placeholder="button.desc.key" /></Field>
@@ -183,9 +230,15 @@ function ButtonEditor({ node }: { node: FlowNode }) {
       <button className="btn btn-secondary btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => set([...d.buttons, { id: uuidv4(), labelKey: '', action: 'next' }])}><PlusIcon /> Add</button>
     </div>
     {d.buttons.map((btn, i) => (
-      <div key={btn.id} style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>btn {i + 1}</span>
+      <div key={btn.id} draggable onDragStart={e => handleDragStart(e, i)} onDragOver={e => handleDragOver(e, i)} onDragEnd={handleDragEnd}
+        style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6, cursor: 'grab', opacity: draggedIndex === i ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ color: 'var(--text-muted)', cursor: 'grab' }} onMouseDown={e => e.currentTarget.style.cursor = 'grabbing'} onMouseUp={e => e.currentTarget.style.cursor = 'grab'}>
+              <GripIcon />
+            </div>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>btn {i + 1}</span>
+          </div>
           <button className="btn-icon" onClick={() => set(d.buttons.filter(b => b.id !== btn.id))}><TrashIcon /></button>
         </div>
         <Field label="Label Key"><TInput value={btn.labelKey} onChange={v => set(d.buttons.map(b => b.id === btn.id ? { ...b, labelKey: v } : b))} placeholder="button.label.key" /></Field>
@@ -216,6 +269,25 @@ function ModalEditor({ node }: { node: FlowNode }) {
   const d = node.data as ModalNodeData;
   const set = (fields: ModalField[]) => update(node.id, { fields } as any);
   const [regexTest, setRegexTest] = useState<{ fieldId: string; input: string } | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    const newFields = [...d.fields];
+    const draggedItem = newFields[draggedIndex];
+    newFields.splice(draggedIndex, 1);
+    newFields.splice(index, 0, draggedItem);
+    set(newFields);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => setDraggedIndex(null);
 
   return <>
     <Field label="Question Key"><TInput value={d.questionKey} onChange={v => update(node.id, { questionKey: v } as any)} placeholder="modal.question.key" /></Field>
@@ -227,9 +299,15 @@ function ModalEditor({ node }: { node: FlowNode }) {
       <button className="btn btn-secondary btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => set([...d.fields, { id: uuidv4(), labelKey: '', required: false, validation: 'none' }])}><PlusIcon /> Add</button>
     </div>
     {d.fields.map((field, i) => (
-      <div key={field.id} style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>field {i + 1}</span>
+      <div key={field.id} draggable onDragStart={e => handleDragStart(e, i)} onDragOver={e => handleDragOver(e, i)} onDragEnd={handleDragEnd}
+        style={{ background: 'var(--bg-overlay)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6, cursor: 'grab', opacity: draggedIndex === i ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ color: 'var(--text-muted)', cursor: 'grab' }} onMouseDown={e => e.currentTarget.style.cursor = 'grabbing'} onMouseUp={e => e.currentTarget.style.cursor = 'grab'}>
+              <GripIcon />
+            </div>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>field {i + 1}</span>
+          </div>
           <button className="btn-icon" onClick={() => set(d.fields.filter(f => f.id !== field.id))}><TrashIcon /></button>
         </div>
         <Field label="Label Key"><TInput value={field.labelKey} onChange={v => set(d.fields.map(f => f.id === field.id ? { ...f, labelKey: v } : f))} placeholder="field.label.key" /></Field>
